@@ -1,0 +1,11 @@
+# tournamentanalysis packages
+
+# Streamlit app
+streamlit>=1.30
+
+# Interactive charts
+plotly>=5.18
+numpy>=1.24
+
+# PNG export for charts
+kaleido>=0.2.1

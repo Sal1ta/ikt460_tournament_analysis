@@ -1,0 +1,21 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local system files
+.DS_Store
+
+# Local editor files
+.idea/
+.vscode/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Generated outputs
+outputs/
+
+# Streamlit local secrets
+.streamlit/secrets.toml

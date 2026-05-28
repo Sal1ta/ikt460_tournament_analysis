@@ -1,0 +1,15 @@
+# Light theme, soft slate background with a teal primary.
+
+[theme]
+base                     = "light"
+primaryColor             = "#14B8A6"   # teal-500 — soft blue-green accent
+backgroundColor          = "#F8FAFC"   # slate-50 — very faint warm page
+secondaryBackgroundColor = "#FFFFFF"   # pure white cards / sidebar
+textColor                = "#0F172A"   # slate-900
+font                     = "sans serif"
+
+[server]
+runOnSave = true
+
+[browser]
+gatherUsageStats = false
