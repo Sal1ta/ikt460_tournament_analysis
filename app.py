@@ -1,5 +1,4 @@
-# App for tournament results
-# Saves plots for the report
+# Streamlit dashboard for the IKT460 Chinese Checkers tournament results
 
 import csv
 import io
@@ -321,11 +320,6 @@ def stat_card(label, value, sub=None, delta=None):
     )
 
 
-def tab_caption(text):
-    # Keep captions styled the same in every tab
-    st.caption(text)
-
-
 st.title(team)
 st.caption(
     f"Rank #{rank} of {len(rows)} · {selected['games']} games played · "
@@ -385,7 +379,7 @@ def plot(fig, slug):
 
 # Leaderboard table
 with tabs[0]:
-    tab_caption("Leaderboard for every team")
+    st.caption("Leaderboard for every team")
     leader_data = [{
         "Rank": i,
         "Team": ("* " if r["team"] == team else "") + r["team"],
@@ -430,7 +424,7 @@ with tabs[0]:
 
 for tab, (_, caption, slug, make_chart) in zip(tabs[1:], chart_specs):
     with tab:
-        tab_caption(caption)
+        st.caption(caption)
         plot(make_chart(), slug)
 
 
@@ -503,6 +497,7 @@ with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="caption">Source code</div>', unsafe_allow_html=True)
     st.markdown(
-        "[github.com/Sal1ta/ikt460_project](https://github.com/Sal1ta/ikt460_project)",
+        "[github.com/Sal1ta/ikt460_tournament_analysis]"
+        "(https://github.com/Sal1ta/ikt460_tournament_analysis)",
         unsafe_allow_html=False,
     )

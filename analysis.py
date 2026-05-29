@@ -1,5 +1,4 @@
-# Reads tournament round files
-# Builds leaderboard and team summaries
+# Reads tournament round files and builds team statistics and leaderboard
 
 import csv
 import statistics
@@ -14,10 +13,8 @@ DEFAULT_TEAM = "S&S"
 NUM_ROUNDS = 13
 
 
-# Parse round files
-
 def _parse_kv_cell(cell):
-    # Split packed cells into a dictionary
+    # csv cells pack multiple team values as team:val;team:val so this splits them out
     out = {}
     if not cell or cell == "NA":
         return out
@@ -38,6 +35,7 @@ def _to_int(d):
 
 
 def parse_round(path, round_no):
+    # Read one round file and return a list with one dict per game
     games = []
     with open(path, newline="") as f:
         reader = csv.DictReader(f)
@@ -71,9 +69,8 @@ def parse_round(path, round_no):
     return games
 
 
-# Build team summaries
-
 def aggregate(all_games):
+    # Walk every game and pile up lists of raw numbers by team name
     stats = defaultdict(lambda: {
         "games": 0,
         "wins": 0,
@@ -110,6 +107,7 @@ def _mean(xs):
 
 
 def leaderboard(stats):
+    # Collapse each teams raw lists into a single summary row sorted by mean score
     rows = []
     for name, s in stats.items():
         if s["games"] == 0:
@@ -131,9 +129,9 @@ def leaderboard(stats):
     return rows
 
 
-# Download missing round files
-
 def ensure_downloaded(data_dir):
+    # Grab any round files that are missing from the local data folder
+    # Partial downloads are removed on failure so a bad network does not leave corrupt files
     data_dir.mkdir(parents=True, exist_ok=True)
     for i in range(1, NUM_ROUNDS + 1):
         path = data_dir / f"round{i}.txt"

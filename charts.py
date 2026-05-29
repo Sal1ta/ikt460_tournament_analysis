@@ -1,5 +1,4 @@
-# Charts for the app
-# Light and dark colors
+# Plotly chart functions for the tournament analysis app
 
 from collections import defaultdict
 import statistics
@@ -8,7 +7,6 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 
-# Chart colors
 THEMES = {
     "light": {
         # Light theme colors
@@ -54,6 +52,8 @@ THEMES = {
     },
 }
 
+# globals() makes all colour constants immediately available without passing
+# a theme argument into every chart function
 BG = GRID = TEXT = SUBTLE = MUTED = OTHER = HIGHLIGHT = HIGHLIGHT_W = ""
 BLUE = GREEN = TEAL = INDIGO = ORANGE = HEAT_LOW = HEAT_MID = HEAT_HIGH = HOVER_BG = ""
 
@@ -67,6 +67,7 @@ set_theme("light")
 
 
 def _base_layout(title=None, height=520, ymargin=80):
+    # Every chart inherits these defaults so Plotly layout options stay in one place
     layout = dict(
         paper_bgcolor=BG,
         plot_bgcolor=BG,
@@ -91,42 +92,8 @@ def _base_layout(title=None, height=520, ymargin=80):
     return layout
 
 
-def consistency_chart(stats, team):
-    # Show score and consistency
-    pts_names, pts_mean, pts_std, pts_color = [], [], [], []
-    for name, s in stats.items():
-        if len(s["scores"]) < 5:
-            continue
-        pts_names.append(name)
-        pts_mean.append(statistics.mean(s["scores"]))
-        pts_std.append(statistics.stdev(s["scores"])
-                       if len(s["scores"]) > 1 else 0)
-        pts_color.append(HIGHLIGHT if name == team else OTHER)
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=pts_mean, y=pts_std, mode="markers+text",
-        marker=dict(size=[16 if n == team else 11 for n in pts_names],
-                    color=pts_color,
-                    line=dict(width=[2 if n == team else 0 for n in pts_names],
-                              color=HIGHLIGHT_W)),
-        text=[n if (n == team or len(pts_names) < 18) else "" for n in pts_names],
-        textposition="top center",
-        textfont=dict(color=[TEXT if n == team else SUBTLE for n in pts_names],
-                      size=11),
-        hovertemplate="<b>%{text}</b><br>Mean: %{x:.0f}<br>"
-                      "Std-dev: %{y:.0f}<extra></extra>",
-    ))
-    layout = _base_layout(height=540)
-    layout["xaxis"]["title"] = dict(text="Mean score (higher = better)",
-                                    font=dict(color=SUBTLE, size=11))
-    layout["yaxis"]["title"] = dict(text="Std-dev (lower = more consistent)",
-                                    font=dict(color=SUBTLE, size=11))
-    fig.update_layout(**layout)
-    return fig
-
-
 def timeline_chart(all_games, team):
+    # Show the selected teams score in every game with stars marking wins
     games = [g for g in all_games if team in g["scores"]]
     if not games:
         return _empty(f"No games for {team!r}")
@@ -169,82 +136,9 @@ def timeline_chart(all_games, team):
     return fig
 
 
-def by_player_count_chart(all_games, team):
-    by_n_score = defaultdict(list)
-    by_n_rank  = defaultdict(list)
-    by_n_win   = defaultdict(list)
-    for g in all_games:
-        if team not in g["scores"]:
-            continue
-        n = g["n_players"]
-        by_n_score[n].append(g["scores"][team])
-        by_n_rank[n].append(g["rank"][team])
-        by_n_win[n].append(int(g["winner"] == team))
-    if not by_n_score:
-        return _empty(f"No games for {team!r}")
-
-    counts = sorted(by_n_score.keys())
-    means  = [np.mean(by_n_score[n]) for n in counts]
-    ranks  = [np.mean(by_n_rank[n])  for n in counts]
-    wins   = [np.mean(by_n_win[n]) * 100 for n in counts]
-    games_n = [len(by_n_score[n]) for n in counts]
-    labels = [f"{n}p<br><span style='color:{MUTED};font-size:10px'>"
-              f"{g} game{'s' if g != 1 else ''}</span>"
-              for n, g in zip(counts, games_n)]
-
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=labels, y=means, marker=dict(color=HIGHLIGHT, line=dict(width=0)),
-        text=[f"{s:.0f}" for s in means], textposition="outside",
-        textfont=dict(color=TEXT, size=12),
-        customdata=list(zip(ranks, wins)),
-        hovertemplate="<b>%{x}</b><br>Mean score: %{y:.0f}<br>"
-                      "Mean rank: %{customdata[0]:.2f}<br>"
-                      "Win rate: %{customdata[1]:.0f}%<extra></extra>",
-        cliponaxis=False,
-    ))
-    layout = _base_layout(height=440)
-    layout["yaxis"]["title"] = dict(text="Mean final score",
-                                    font=dict(color=SUBTLE, size=11))
-    fig.update_layout(**layout)
-    return fig
-
-
-def rank_distribution_chart(all_games, team):
-    # Show finishing rank by player count
-    by_n = defaultdict(lambda: defaultdict(int))
-    for g in all_games:
-        if team not in g["scores"]:
-            continue
-        n = g["n_players"]
-        by_n[n][g["rank"][team]] += 1
-    if not by_n:
-        return _empty(f"No games for {team!r}")
-
-    counts = sorted(by_n.keys())
-    max_rank = max(max(d.keys()) for d in by_n.values())
-    colors = [GREEN, BLUE, TEAL, INDIGO, ORANGE, OTHER]
-
-    fig = go.Figure()
-    for r in range(1, max_rank + 1):
-        ys = [by_n[n].get(r, 0) for n in counts]
-        fig.add_trace(go.Bar(
-            x=[f"{n}p" for n in counts], y=ys,
-            name=f"#{r}",
-            marker=dict(color=colors[(r - 1) % len(colors)],
-                        line=dict(width=0)),
-            hovertemplate=f"<b>#{r} finish</b><br>%{{x}}: %{{y}} game(s)"
-                          "<extra></extra>",
-        ))
-    layout = _base_layout(height=440)
-    layout["yaxis"]["title"] = dict(text="Games", font=dict(color=SUBTLE,
-                                                            size=11))
-    fig.update_layout(**layout, barmode="stack")
-    return fig
-
-
 def head_to_head_chart(all_games, team):
-    # Show direct meetings
+    # Count how often the selected team placed above or below each opponent
+    # across all games they shared, then sort opponents by net advantage
     wins, losses = defaultdict(int), defaultdict(int)
     for g in all_games:
         if team not in g["scores"]:
@@ -290,7 +184,8 @@ def head_to_head_chart(all_games, team):
 
 
 def components_chart(stats, team, top_n=5):
-    # Show score parts
+    # Show the top teams and the selected team side by side with each score
+    # component stacked so it is easy to see where the gap comes from
     ranked = sorted(stats.items(),
                     key=lambda kv: -np.mean(kv[1]["scores"] or [0]))
     picked = [name for name, _ in ranked[:top_n]]
@@ -336,7 +231,8 @@ def components_chart(stats, team, top_n=5):
 
 
 def score_gap_waterfall_chart(rows, stats, team, top_n=5):
-    # Show why the selected team is below the top teams
+    # Waterfall makes it easy to see which component is responsible for the
+    # gap between the selected team and the top five average
     if not rows or team not in stats:
         return _empty(f"No score gap data for {team!r}")
 
@@ -413,6 +309,8 @@ def score_gap_waterfall_chart(rows, stats, team, top_n=5):
 
 
 def skips_chart(rows, team):
+    # Teams with fewer than five games are excluded because one bad round
+    # would dominate the bar and make the chart misleading
     relevant = [r for r in rows if r["games"] >= 5]
     relevant.sort(key=lambda r: r["total_skip"])
     names = [r["team"] for r in relevant]
@@ -437,8 +335,7 @@ def skips_chart(rows, team):
     return fig
 
 
-# More charts
-
+# Hex codes for the six piece colours used in the tournament data
 COLOR_HEX = {
     "yellow":     "#FCD34D",
     "red":        "#F87171",
@@ -450,8 +347,8 @@ COLOR_HEX = {
 
 
 def color_seat_chart(all_games, team):
-    # Show colour wins and selected team colours
-    # Field colour wins
+    # Left panel shows field-wide win rate per colour to reveal any seat advantage
+    # Right panel shows which colours the selected team was assigned
     by_color = defaultdict(lambda: {"games": 0, "wins": 0})
     for g in all_games:
         for name, color in g["colors"].items():
@@ -466,7 +363,6 @@ def color_seat_chart(all_games, team):
     sample_n  = [by_color[c]["games"] for c in colors_sorted]
     bar_colors = [COLOR_HEX.get(c, OTHER) for c in colors_sorted]
 
-    # Selected team colours
     team_colors = defaultdict(int)
     team_wins   = defaultdict(int)
     for g in all_games:
@@ -528,204 +424,8 @@ def color_seat_chart(all_games, team):
     return fig
 
 
-def strength_of_schedule_chart(all_games, rows, team):
-    # Show average opponent strength
-    rank_lookup = {r["team"]: i + 1 for i, r in enumerate(rows)}
-    by_team = defaultdict(list)
-    for g in all_games:
-        members = list(g["scores"].keys())
-        for m in members:
-            for opp in members:
-                if opp == m:
-                    continue
-                if opp in rank_lookup:
-                    by_team[m].append(rank_lookup[opp])
-    rows_sorted = sorted(
-        [(t, float(np.mean(rs))) for t, rs in by_team.items()
-         if len(rs) >= 5],
-        key=lambda kv: kv[1])     # lower = harder schedule first
-    names = [t for t, _ in rows_sorted]
-    means = [m for _, m in rows_sorted]
-    colors = [HIGHLIGHT if n == team else OTHER for n in names]
-
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=means, y=names, orientation="h",
-        marker=dict(color=colors, line=dict(width=0)),
-        text=[f"{m:.1f}" for m in means],
-        textposition="outside",
-        textfont=dict(color=SUBTLE, size=11),
-        hovertemplate="<b>%{y}</b><br>Mean opponent rank: %{x:.2f}"
-                      "<extra></extra>",
-        cliponaxis=False,
-    ))
-    field_mean = float(np.mean(means))
-    fig.add_vline(x=field_mean, line_dash="dash", line_color=SUBTLE,
-                  line_width=1,
-                  annotation_text=f"field mean {field_mean:.1f}",
-                  annotation_position="top",
-                  annotation_font_color=SUBTLE,
-                  annotation_font_size=10)
-    layout = _base_layout(height=max(420, 22 * len(names)), ymargin=180)
-    layout["xaxis"]["title"] = dict(
-        text="Mean opponent tournament-rank  ·  lower = harder schedule",
-        font=dict(color=SUBTLE, size=11))
-    fig.update_layout(**layout)
-    return fig
-
-
-def speed_vs_rank_chart(stats, team):
-    # Show speed against rank
-    pts_name, pts_time, pts_rank, pts_games = [], [], [], []
-    for name, s in stats.items():
-        if len(s["scores"]) < 5 or not s["times"]:
-            continue
-        # Estimate time taken from time score
-        # Only used for chart ranking
-        mean_t = 100 - float(np.mean(s["times"]))
-        pts_name.append(name)
-        pts_time.append(max(0.0, mean_t))
-        pts_rank.append(float(np.mean(s["ranks"])))
-        pts_games.append(len(s["scores"]))
-
-    colors = [HIGHLIGHT if n == team else OTHER for n in pts_name]
-    sizes  = [16 if n == team else 11 for n in pts_name]
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=pts_time, y=pts_rank, mode="markers+text",
-        marker=dict(size=sizes, color=colors,
-                    line=dict(width=[2 if n == team else 0 for n in pts_name],
-                              color=HIGHLIGHT_W)),
-        text=[n if (n == team or len(pts_name) < 16) else "" for n in pts_name],
-        textposition="top center",
-        textfont=dict(color=[TEXT if n == team else SUBTLE for n in pts_name],
-                      size=11),
-        customdata=pts_games,
-        hovertemplate="<b>%{text}</b><br>Mean time: %{x:.1f}s<br>"
-                      "Mean rank: %{y:.2f}<br>"
-                      "Games: %{customdata}<extra></extra>",
-    ))
-    # Add trend line
-    if len(pts_time) > 2:
-        slope, intercept = np.polyfit(pts_time, pts_rank, 1)
-        xs = np.linspace(min(pts_time), max(pts_time), 50)
-        ys = slope * xs + intercept
-        fig.add_trace(go.Scatter(
-            x=xs, y=ys, mode="lines",
-            line=dict(color=SUBTLE, dash="dot", width=1),
-            hoverinfo="skip", showlegend=False,
-        ))
-
-    layout = _base_layout(height=520)
-    layout["xaxis"]["title"] = dict(
-        text="Mean time taken per game (s) — lower = faster agent",
-        font=dict(color=SUBTLE, size=11))
-    layout["yaxis"]["title"] = dict(
-        text="Mean rank (1 = best)",
-        font=dict(color=SUBTLE, size=11))
-    layout["yaxis"]["autorange"] = "reversed"   # rank 1 at top
-    fig.update_layout(**layout, showlegend=False)
-    return fig
-
-
-def head_to_head_matrix_chart(all_games, rows, team):
-    # Build direct match matrix
-    rank_lookup = {r["team"]: i + 1 for i, r in enumerate(rows)}
-    eligible = [r["team"] for r in rows if r["games"] >= 5]
-    ordered = sorted(eligible, key=lambda t: rank_lookup[t])
-    n = len(ordered)
-
-    # Count direct wins for each team pair
-    pair = defaultdict(lambda: {"row_higher": 0, "col_higher": 0})
-    for g in all_games:
-        members = [m for m in g["scores"] if m in rank_lookup]
-        for a in members:
-            for b in members:
-                if a == b:
-                    continue
-                if g["rank"][a] < g["rank"][b]:
-                    pair[(a, b)]["row_higher"] += 1
-
-    z      = [[None] * n for _ in range(n)]
-    text   = [[""]   * n for _ in range(n)]
-    hover  = [[""]   * n for _ in range(n)]
-    for i, a in enumerate(ordered):
-        for j, b in enumerate(ordered):
-            if a == b:
-                z[i][j] = None
-                text[i][j] = ""
-                hover[i][j] = ""
-                continue
-            wins  = pair[(a, b)]["row_higher"]
-            losses = pair[(b, a)]["row_higher"]
-            total = wins + losses
-            if total == 0:
-                z[i][j] = None
-                text[i][j] = "·"
-                hover[i][j] = f"{a} vs {b}<br>never met"
-                continue
-            share = wins / total
-            z[i][j] = share
-            text[i][j] = f"{wins}-{losses}"
-            hover[i][j] = (f"<b>{a}</b> vs <b>{b}</b><br>"
-                           f"{a} higher: {wins}<br>"
-                           f"{b} higher: {losses}<br>"
-                           f"Total meetings: {total}")
-
-    fig = go.Figure()
-    fig.add_trace(go.Heatmap(
-        z=z, x=ordered, y=ordered,
-        colorscale=[
-            [0.0,  HEAT_LOW],
-            [0.5,  HEAT_MID],
-            [1.0,  HEAT_HIGH],
-        ],
-        zmin=0.0, zmax=1.0,
-        hoverongaps=False,
-        text=text, texttemplate="%{text}",
-        textfont=dict(size=10, color=TEXT, family="Inter"),
-        customdata=hover, hovertemplate="%{customdata}<extra></extra>",
-        xgap=2, ygap=2,
-        showscale=True,
-        colorbar=dict(
-            title=dict(text="Row team's<br>win share",
-                       font=dict(color=SUBTLE, size=11)),
-            tickfont=dict(color=SUBTLE),
-            tickvals=[0.0, 0.5, 1.0],
-            ticktext=["row<br>loses", "even", "row<br>dominates"],
-            len=0.6, thickness=14,
-            outlinecolor=GRID, outlinewidth=0,
-            bgcolor="rgba(0,0,0,0)",
-            x=1.02,
-        ),
-    ))
-
-    layout = _base_layout(height=max(640, 28 * n), ymargin=200)
-    fig.update_layout(**layout)
-    fig.update_xaxes(tickangle=-45, tickfont=dict(size=11, color=SUBTLE),
-                     side="bottom")
-    fig.update_yaxes(tickfont=dict(size=11, color=SUBTLE),
-                     autorange="reversed")     # rank 1 at top
-
-    if team in ordered:
-        idx = ordered.index(team)
-        fig.add_shape(type="rect",
-                      x0=-0.5, x1=n - 0.5,
-                      y0=idx - 0.5, y1=idx + 0.5,
-                      line=dict(color=HIGHLIGHT_W, width=2),
-                      fillcolor="rgba(37,99,235,0.06)",
-                      layer="above")
-        fig.add_shape(type="rect",
-                      x0=idx - 0.5, x1=idx + 0.5,
-                      y0=-0.5, y1=n - 0.5,
-                      line=dict(color=HIGHLIGHT_W, width=2),
-                      fillcolor="rgba(37,99,235,0.06)",
-                      layer="above")
-    return fig
-
-
 def _empty(msg):
+    # Placeholder figure shown when there is not enough data to draw a real chart
     fig = go.Figure()
     fig.add_annotation(text=msg, x=0.5, y=0.5, xref="paper", yref="paper",
                        showarrow=False, font=dict(color=SUBTLE, size=14))
